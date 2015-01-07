@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2014, Project OSRM, Dennis Luxen, others
+Copyright (c) 2015, Project OSRM, Dennis Luxen, others
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -87,6 +87,11 @@ struct Renderer : mapbox::util::static_visitor<>
 
     void operator()(const Null &) const { out << "null"; }
 
+    void operator()(const char_array &array) const
+    {
+        //TODO: implement
+    }
+
   private:
     std::ostream &out;
 };
@@ -160,6 +165,11 @@ struct ArrayRenderer : mapbox::util::static_visitor<>
     {
         const std::string temp("null");
         out.insert(out.end(), temp.begin(), temp.end());
+    }
+
+    void operator()(const char_array &array) const
+    {
+        //TODO: implement
     }
 
   private:

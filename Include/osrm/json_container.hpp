@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013, Project OSRM, Dennis Luxen, others
+Copyright (c) 2015, Project OSRM, Dennis Luxen, others
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -28,8 +28,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // based on
 // https://svn.apache.org/repos/asf/mesos/tags/release-0.9.0-incubating-RC0/src/common/json.hpp
 
-#ifndef JSON_CONTAINER_H
-#define JSON_CONTAINER_H
+#ifndef JSON_CONTAINER_HPP
+#define JSON_CONTAINER_HPP
 
 #include <variant/variant.hpp>
 
@@ -71,13 +71,19 @@ struct Null
 {
 };
 
+struct char_array
+{
+    std::vector<char> values;
+};
+
 using Value = mapbox::util::variant<String,
                                     Number,
                                     mapbox::util::recursive_wrapper<Object>,
                                     mapbox::util::recursive_wrapper<Array>,
                                     True,
                                     False,
-                                    Null>;
+                                    Null,
+                                    char_array>;
 
 struct Object
 {
@@ -91,4 +97,4 @@ struct Array
 
 } // namespace JSON
 
-#endif // JSON_CONTAINER_H
+#endif // JSON_CONTAINER_HPP
