@@ -256,7 +256,8 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
         SimpleLogger().Write() << "running viterbi algorithm: ";
 
         // attention, this call is relatively expensive
-        const auto beta = get_beta(state_size, timestamp_list, coordinate_list);
+        //const auto beta = get_beta(state_size, timestamp_list, coordinate_list);
+        const auto beta = 10.0;
 
         JSON::Array json_timestamps;
         for (auto t = 1u; t < timestamp_list.size(); ++t)
@@ -277,6 +278,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                                                              coordinate_list[t],
                                                              timestamp_list[t-1][s].first,
                                                              timestamp_list[t][s_prime].first);
+                    ;
 
                     // plug probabilities together. TODO: change to addition for logprobs
                     const double transition_pr = transition_probability(beta, d_t);
@@ -286,13 +288,18 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                     json_element.values.push_back(viterbi[s][t-1]);
                     json_element.values.push_back(emission_pr);
                     json_element.values.push_back(transition_pr);
+                    json_element.values.push_back(get_network_distance(timestamp_list[t-1][s].first, timestamp_list[t][s_prime].first));
+                    json_element.values.push_back(FixedPointCoordinate::ApproximateDistance(coordinate_list[t-1], coordinate_list[t]));
 
                     json_row.values.push_back(json_element);
 
                     if (new_value > viterbi[s_prime][t])
                     {
+                        SimpleLogger().Write() << "Updating: " << t << ": (" << s_prime << "): " << viterbi[s_prime][t] << " -> " << new_value << " (from " << s << ")";
                         viterbi[s_prime][t] = new_value;
                         parent[s_prime][t] = s;
+                    } else {
+                        SimpleLogger().Write() << " x " << t << ": " << new_value << " (from " << s << ")";
                     }
                 }
                 json_transition_rows.values.push_back(json_row);
@@ -304,6 +311,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
 
         debug_info.values["transitions"] = json_timestamps;
         debug_info.values["viterbi"] = json_viterbi;
+        debug_info.values["beta"] = beta;
 
         SimpleLogger().Write() << "Determining most plausible end state";
         // loop through the columns, and only compare the last entry
@@ -316,13 +324,30 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
             }
         }
         auto parent_index = std::distance(viterbi.begin(), max_element_iter);
-        std::cout << "Selected maxium: " << max_element_iter->at(timestamp_list.size()-1) << " at index " << parent_index;
+        std::cout << "Selected maxium: " << max_element_iter->at(timestamp_list.size()-1) << " at index " << parent_index << std::endl;
         std::deque<std::size_t> reconstructed_indices;
+
+        SimpleLogger().Write() << "Parents: ";
+        for (const auto& row : parent) {
+            for (const auto v : row) {
+                std::cout << v << "\t";
+            }
+            std::cout << std::endl;
+        }
+
+        SimpleLogger().Write() << "Viterbi: ";
+        for (const auto& row : viterbi) {
+            for (const auto v : row) {
+                std::cout << v << "\t";
+            }
+            std::cout << std::endl;
+        }
+
 
         SimpleLogger().Write() << "Backtracking to find most plausible state sequence";
         for (auto i = timestamp_list.size() - 1u; i > 0u; --i)
         {
-            SimpleLogger().Write() << "[" << i << "] parent: " << parent_index ;
+            SimpleLogger().Write() << "[" << i << "] select: " << parent_index ;
             reconstructed_indices.push_front(parent_index);
             parent_index = parent[parent_index][i];
         }
