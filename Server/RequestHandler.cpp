@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "../Library/OSRM.h"
 #include "../Util/json_renderer.hpp"
+#include "../Util/pbf_renderer.hpp"
 #include "../Util/simple_logger.hpp"
 #include "../Util/string_util.hpp"
 #include "../Util/xml_renderer.hpp"
@@ -127,6 +128,12 @@ void RequestHandler::handle_request(const http::Request &req, http::Reply &reply
             JSON::gpx_render(reply.content, json_result.values["route"]);
             reply.headers.emplace_back("Content-Type", "application/gpx+xml; charset=UTF-8");
             reply.headers.emplace_back("Content-Disposition", "attachment; filename=\"route.gpx\"");
+        }
+        else if ("pbf" == route_parameters.output_format)
+        {
+            JSON::pbf_render(reply.content, json_result.values["pbf"]);
+            reply.headers.emplace_back("Content-Type", "application/x-protobuf; charset=UTF-8");
+            reply.headers.emplace_back("Content-Disposition", "inline; filename=\"response.json\"");
         }
         else if (route_parameters.jsonp_parameter.empty())
         { // json file
