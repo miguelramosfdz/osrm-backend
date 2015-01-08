@@ -107,10 +107,6 @@ struct XMLToArrayRenderer : mapbox::util::static_visitor<>
         out.insert(out.end(), temp.begin(), temp.end());
     }
 
-    void operator()(const char_array &array) const
-    {
-    }
-
   private:
     std::vector<char> &out;
 };

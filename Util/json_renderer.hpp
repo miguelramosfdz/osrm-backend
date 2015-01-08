@@ -87,11 +87,6 @@ struct Renderer : mapbox::util::static_visitor<>
 
     void operator()(const Null &) const { out << "null"; }
 
-    void operator()(const char_array &array) const
-    {
-        out << "{\"binary data\"}";
-    }
-
   private:
     std::ostream &out;
 };
@@ -165,11 +160,6 @@ struct ArrayRenderer : mapbox::util::static_visitor<>
     {
         const std::string temp("null");
         out.insert(out.end(), temp.begin(), temp.end());
-    }
-
-    void operator()(const char_array &array) const
-    {
-        out = std::move(array.values);
     }
 
   private:
