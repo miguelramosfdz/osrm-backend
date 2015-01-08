@@ -130,7 +130,7 @@ void RequestHandler::handle_request(const http::Request &req, http::Reply &reply
             reply.headers.emplace_back("Content-Disposition", "attachment; filename=\"route.gpx\"");
         }
         else if ("pbf" == route_parameters.output_format)
-        {
+        { // pbf file
             JSON::pbf_render(reply.content, json_result.values["pbf"]);
             reply.headers.emplace_back("Content-Type", "application/x-protobuf; charset=UTF-8");
             reply.headers.emplace_back("Content-Disposition", "inline; filename=\"response.json\"");
