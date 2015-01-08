@@ -74,17 +74,16 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
 
     void Run(const InternalRouteResult &raw_route, JSON::Object &json_result) final
     {
-        std::vector<char> result_vector;
+        JSON::String result_string;
         protobufResponse::Response response;
-        std::string output;
 
         if (INVALID_EDGE_WEIGHT == raw_route.shortest_path_length)
         {
             // We do not need to do much, if there is no route ;-)
             response.set_status(207);
             response.set_status_message("Cannot find route between points");
-            response.SerializeToString(&output);
-            result_vector.insert(result_vector.end(), output.begin(), output.end());
+            response.SerializeToString(&result_string.value);
+            json_result.values["pbf"] = result_string;
             return;
         }
 
@@ -250,8 +249,8 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
 
         SimpleLogger().Write(logDEBUG) << response.DebugString();
 
-        response.SerializeToString(&output);
-        result_vector.insert(result_vector.end(), output.begin(), output.end());
+        response.SerializeToString(&result_string.value);
+        json_result.values["pbf"] = result_string;
     }
 };
 #endif // PROTOBUF_DESCRIPTOR_HPP
