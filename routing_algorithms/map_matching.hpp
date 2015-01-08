@@ -229,7 +229,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
 
 
         std::vector<std::vector<double>> viterbi(state_size,
-                                                 std::vector<double>(timestamp_list.size(), 0));
+                                                 std::vector<double>(timestamp_list.size(), -std::numeric_limits<double>::infinity()));
         std::vector<std::vector<std::size_t>> parent(
             state_size, std::vector<std::size_t>(timestamp_list.size(), 0));
 
@@ -248,7 +248,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
 
             // this might need to be squared as pi_s is also defined as the emission
             // probability in the paper.
-            viterbi[s][0] = emission_probability(timestamp_list[0][s].second);
+            viterbi[s][0] = log_probability(emission_probability(timestamp_list[0][s].second));
             parent[s][0] = s;
             json_initial_viterbi.values.push_back(viterbi[s][0]);
         }
@@ -271,7 +271,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                 for (auto s_prime = 0u; s_prime < state_size; ++s_prime)
                 {
                     // how likely is candidate s_prime at time t to be emitted?
-                    const double emission_pr = emission_probability(timestamp_list[t][s_prime].second);
+                    const double emission_pr = log_probability(emission_probability(timestamp_list[t][s_prime].second));
 
                     // get distance diff between loc1/2 and locs/s_prime
                     const auto d_t = get_distance_difference(coordinate_list[t-1],
@@ -281,8 +281,8 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                     ;
 
                     // plug probabilities together. TODO: change to addition for logprobs
-                    const double transition_pr = transition_probability(beta, d_t);
-                    const double new_value = viterbi[s][t-1] * emission_pr * transition_pr;
+                    const double transition_pr = log_probability(transition_probability(beta, d_t));
+                    const double new_value = viterbi[s][t-1] + emission_pr + transition_pr;
 
                     JSON::Array json_element;
                     json_element.values.push_back(viterbi[s][t-1]);
