@@ -89,7 +89,7 @@ struct Renderer : mapbox::util::static_visitor<>
 
     void operator()(const char_array &array) const
     {
-        //TODO: implement
+        out << "{\"binary data\"}";
     }
 
   private:
@@ -169,7 +169,7 @@ struct ArrayRenderer : mapbox::util::static_visitor<>
 
     void operator()(const char_array &array) const
     {
-        //TODO: implement
+        out = std::move(array.values);
     }
 
   private:
