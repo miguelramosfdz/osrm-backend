@@ -50,3 +50,13 @@ message Response {
     optional Route alternative_route = 4;
     optional Hint hint = 5;
 }
+
+message MatrixRow
+{
+    repeated uint32 entry = 1;
+}
+
+message DistanceMatrix
+{
+    repeated MatrixRow row = 1;
+}
