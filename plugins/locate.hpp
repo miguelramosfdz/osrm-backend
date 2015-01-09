@@ -30,6 +30,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "plugin_base.hpp"
 
+#include "response.pb.h"
+
 #include "../Util/json_renderer.hpp"
 #include "../Util/string_util.hpp"
 
@@ -47,18 +49,33 @@ template <class DataFacadeT> class LocatePlugin final : public BasePlugin
     int HandleRequest(const RouteParameters &route_parameters, JSON::Object &json_result) final
     {
         // check number of parameters
-        if (route_parameters.coordinates.empty() || !route_parameters.coordinates.front().is_valid())
+        if (route_parameters.coordinates.empty() ||
+            !route_parameters.coordinates.front().is_valid())
         {
             return 400;
         }
 
         FixedPointCoordinate result;
-        if (!facade->LocateClosestEndPointForCoordinate(route_parameters.coordinates.front(),
-                                                        result))
+        bool found_coordinate = facade->LocateClosestEndPointForCoordinate(
+                                    route_parameters.coordinates.front(),
+                                    result);
+
+        if ("pbf" == route_parameters.output_format)
         {
-            json_result.values["status"] = 207;
+            protobuffer_response::location_response location_response;
+            location_response.set_status(207);
+            if (found_coordinate)
+            {
+                location_response.set_status(207);
+                protobuffer_response::Point point;
+                point.set_lat(result.lat / COORDINATE_PRECISION);
+                point.set_lon(result.lon / COORDINATE_PRECISION);
+                location_response.mutable_mapped_coordinate()->CopyFrom(point);
+            }
+            return 200;
         }
-        else
+        json_result.values["status"] = 207;
+        if (found_coordinate)
         {
             json_result.values["status"] = 0;
             JSON::Array json_coordinate;
