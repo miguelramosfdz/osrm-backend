@@ -32,7 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "../algorithms/object_encoder.hpp"
 #include "../data_structures/search_engine.hpp"
-#include "../descriptors/descriptor_base.hpp"
 #include "../descriptors/gpx_descriptor.hpp"
 #include "../descriptors/json_descriptor.hpp"
 #include "../descriptors/protobuf_descriptor.hpp"
@@ -53,7 +52,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 template <class DataFacadeT> class ViaRoutePlugin final : public BasePlugin
 {
   private:
-    DescriptorTable descriptor_table;
     std::string descriptor_string;
     std::unique_ptr<SearchEngine<DataFacadeT>> search_engine_ptr;
     DataFacadeT *facade;
@@ -62,11 +60,6 @@ template <class DataFacadeT> class ViaRoutePlugin final : public BasePlugin
     explicit ViaRoutePlugin(DataFacadeT *facade) : descriptor_string("viaroute"), facade(facade)
     {
         search_engine_ptr = osrm::make_unique<SearchEngine<DataFacadeT>>(facade);
-
-        descriptor_table.emplace("json", 0);
-        descriptor_table.emplace("gpx", 1);
-        descriptor_table.emplace("pbf", 2);
-        // descriptor_table.emplace("geojson", 3);
     }
 
     virtual ~ViaRoutePlugin() {}
