@@ -209,7 +209,27 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                     reverse_heap, forward_heap, &middle_node, &upper_bound, edge_offset, false);
             }
         }
-        return upper_bound;
+
+        std::vector<NodeID> packed_leg;
+        super::RetrievePackedPathFromHeap(forward_heap, reverse_heap, middle_node, packed_leg);
+        std::vector<PathData> unpacked_path;
+        PhantomNodes nodes;
+        nodes.source_phantom = source_phantom;
+        nodes.target_phantom = target_phantom;
+        super::UnpackPath(packed_leg, nodes, unpacked_path);
+
+        FixedPointCoordinate previous_coordinate = source_phantom.location;
+        FixedPointCoordinate current_coordinate;
+        double distance = 0;
+        for (const auto& p : unpacked_path)
+        {
+            current_coordinate = super::facade->GetCoordinateOfNode(p.node);
+            distance += FixedPointCoordinate::ApproximateDistance(previous_coordinate, current_coordinate);
+            previous_coordinate = current_coordinate;
+        }
+        distance += FixedPointCoordinate::ApproximateDistance(previous_coordinate, target_phantom.location);
+
+        return distance;
     }
 
   public:
