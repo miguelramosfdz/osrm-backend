@@ -278,16 +278,16 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                                                              coordinate_list[t],
                                                              timestamp_list[t-1][s].first,
                                                              timestamp_list[t][s_prime].first);
-                    ;
 
                     // plug probabilities together. TODO: change to addition for logprobs
                     const double transition_pr = log_probability(transition_probability(d_t, beta));
                     const double new_value = viterbi[s][t-1] + emission_pr + transition_pr;
 
+
                     JSON::Array json_element;
                     json_element.values.push_back(viterbi[s][t-1]);
                     json_element.values.push_back(emission_pr);
-                    json_element.values.push_back(transition_pr);
+                    json_element.values.push_back(transition_pr == -std::numeric_limits<double>::infinity() ? -std::numeric_limits<double>::max() : transition_pr);
                     json_element.values.push_back(get_network_distance(timestamp_list[t-1][s].first, timestamp_list[t][s_prime].first));
                     json_element.values.push_back(FixedPointCoordinate::ApproximateDistance(coordinate_list[t-1], coordinate_list[t]));
 
@@ -356,12 +356,15 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
 
         SimpleLogger().Write() << "Computing most plausible sequence of phantom nodes";
 
+        JSON::Array chosen_candidates;
         matched_nodes.resize(reconstructed_indices.size());
         for (auto i = 0u; i < reconstructed_indices.size(); ++i)
         {
             auto location_index = reconstructed_indices[i];
             matched_nodes[i] = timestamp_list[i][location_index].first;
+            chosen_candidates.values.push_back(location_index);
         }
+        debug_info.values["chosen_candidates"] = chosen_candidates;
 
         SimpleLogger().Write() << "done";
     }
