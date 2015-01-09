@@ -327,23 +327,6 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
         std::cout << "Selected maxium: " << max_element_iter->at(timestamp_list.size()-1) << " at index " << parent_index << std::endl;
         std::deque<std::size_t> reconstructed_indices;
 
-        SimpleLogger().Write() << "Parents: ";
-        for (const auto& row : parent) {
-            for (const auto v : row) {
-                std::cout << v << "\t";
-            }
-            std::cout << std::endl;
-        }
-
-        SimpleLogger().Write() << "Viterbi: ";
-        for (const auto& row : viterbi) {
-            for (const auto v : row) {
-                std::cout << v << "\t";
-            }
-            std::cout << std::endl;
-        }
-
-
         SimpleLogger().Write() << "Backtracking to find most plausible state sequence";
         for (auto i = timestamp_list.size() - 1u; i > 0u; --i)
         {
