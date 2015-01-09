@@ -281,7 +281,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                     ;
 
                     // plug probabilities together. TODO: change to addition for logprobs
-                    const double transition_pr = log_probability(transition_probability(beta, d_t));
+                    const double transition_pr = log_probability(transition_probability(d_t, beta));
                     const double new_value = viterbi[s][t-1] + emission_pr + transition_pr;
 
                     JSON::Array json_element;
