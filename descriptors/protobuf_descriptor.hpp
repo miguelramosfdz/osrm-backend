@@ -38,10 +38,10 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
   private:
     typedef BaseDescriptor<DataFacadeT> super;
 
-    inline void AddInstructionToRoute(protobufResponse::Route &route,
+    inline void AddInstructionToRoute(protobuffer_response::Route &route,
                                       const typename super::Instruction &i)
     {
-        protobufResponse::RouteInstructions route_instructions;
+        protobuffer_response::RouteInstructions route_instructions;
         route_instructions.set_instruction_id(i.instruction_id);
         route_instructions.set_street_name(i.street_name);
         route_instructions.set_length(i.length);
@@ -57,7 +57,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
     inline void BuildTextualDescription(const int route_length,
                                         DescriptionFactory &description_factory,
                                         std::vector<typename super::Segment> &route_segments_list,
-                                        protobufResponse::Route &route)
+                                        protobuffer_response::Route &route)
     {
         std::vector<typename super::Instruction> instructions;
         super::BuildTextualDescription(
@@ -75,7 +75,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
     void Run(const InternalRouteResult &raw_route, JSON::Object &json_result) final
     {
         JSON::String result_string;
-        protobufResponse::Response response;
+        protobuffer_response::Response response;
 
         if (INVALID_EDGE_WEIGHT == raw_route.shortest_path_length)
         {
@@ -112,7 +112,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
             BOOST_ASSERT(0 < added_segments);
         }
 
-        protobufResponse::Route main_route;
+        protobuffer_response::Route main_route;
         super::description_factory.Run(super::config.zoom_level);
         if (super::config.geometry)
         {
@@ -131,7 +131,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
         super::description_factory.BuildRouteSummary(super::description_factory.get_entire_length(),
                                                      raw_route.shortest_path_length);
 
-        protobufResponse::RouteSummary route_summary;
+        protobuffer_response::RouteSummary route_summary;
 
         route_summary.set_total_distance(super::description_factory.summary.distance);
         route_summary.set_total_time(super::description_factory.summary.duration);
@@ -143,7 +143,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
 
         BOOST_ASSERT(!raw_route.segment_end_coordinates.empty());
 
-        protobufResponse::Point point;
+        protobuffer_response::Point point;
         point.set_lat(raw_route.segment_end_coordinates.front().source_phantom.location.lat /
                       COORDINATE_PRECISION);
         point.set_lon(raw_route.segment_end_coordinates.front().source_phantom.location.lon /
@@ -169,7 +169,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
 
         if (INVALID_EDGE_WEIGHT != raw_route.alternative_path_length)
         {
-            protobufResponse::Route alternative_route;
+            protobuffer_response::Route alternative_route;
             BOOST_ASSERT(!raw_route.alt_source_traversed_in_reverse.empty());
             super::alternate_description_factory.SetStartSegment(
                 raw_route.segment_end_coordinates.front().source_phantom,
@@ -205,7 +205,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
                 super::alternate_description_factory.get_entire_length(),
                 raw_route.alternative_path_length);
 
-            protobufResponse::RouteSummary alternative_routeSummary;
+            protobuffer_response::RouteSummary alternative_routeSummary;
 
             alternative_routeSummary.set_total_distance(
                 super::alternate_description_factory.summary.distance);
@@ -233,7 +233,7 @@ template <class DataFacadeT> class PBFDescriptor : public BaseDescriptor<DataFac
         main_route.add_route_name(route_names.shortest_path_name_1);
         main_route.add_route_name(route_names.shortest_path_name_2);
 
-        protobufResponse::Hint hint;
+        protobuffer_response::Hint hint;
         hint.set_check_sum(super::facade->GetCheckSum());
         std::string res;
         for (const auto i : osrm::irange<std::size_t>(0, raw_route.segment_end_coordinates.size()))
