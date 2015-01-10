@@ -32,6 +32,19 @@ or see http://www.gnu.org/licenses/agpl.txt.
 
 #include <fstream>
 
+template<typename T>
+T makeJSONSave(T d)
+{
+    if (std::isnan(d) || std::numeric_limits<T>::infinity() == d) {
+        return std::numeric_limits<T>::max();
+    }
+    if (-std::numeric_limits<T>::infinity() == d) {
+        return -std::numeric_limits<T>::max();
+    }
+
+    return d;
+}
+
 namespace Matching
 {
 typedef std::vector<std::pair<PhantomNode, double>> CandidateList;
@@ -257,19 +270,10 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
         std::vector<std::vector<std::size_t>> parent(
             state_size, std::vector<std::size_t>(timestamp_list.size(), 0));
 
-        SimpleLogger().Write() << "initializing state probabilties: ";
-
         JSON::Array json_viterbi;
         JSON::Array json_initial_viterbi;
         for (auto s = 0u; s < state_size; ++s)
         {
-            SimpleLogger().Write() << "initializing s: " << s << "/" << state_size;
-            SimpleLogger().Write()
-                << " distance: " << timestamp_list[0][s].second << " at "
-                << timestamp_list[0][s].first.location << " prob " << std::setprecision(10)
-                << emission_probability(timestamp_list[0][s].second) << " logprob "
-                << log_probability(emission_probability(timestamp_list[0][s].second));
-
             // this might need to be squared as pi_s is also defined as the emission
             // probability in the paper.
             viterbi[s][0] = log_probability(emission_probability(timestamp_list[0][s].second));
@@ -309,9 +313,9 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
 
 
                     JSON::Array json_element;
-                    json_element.values.push_back(viterbi[s][t-1]);
-                    json_element.values.push_back(emission_pr);
-                    json_element.values.push_back(transition_pr == -std::numeric_limits<double>::infinity() ? -std::numeric_limits<double>::max() : transition_pr);
+                    json_element.values.push_back(makeJSONSave(viterbi[s][t-1]));
+                    json_element.values.push_back(makeJSONSave(emission_pr));
+                    json_element.values.push_back(makeJSONSave(transition_pr));
                     json_element.values.push_back(get_network_distance(timestamp_list[t-1][s].first, timestamp_list[t][s_prime].first));
                     json_element.values.push_back(FixedPointCoordinate::ApproximateDistance(coordinate_list[t-1], coordinate_list[t]));
 
@@ -319,15 +323,12 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
 
                     if (new_value > viterbi[s_prime][t])
                     {
-                        SimpleLogger().Write() << "Updating: " << t << ": (" << s_prime << "): " << viterbi[s_prime][t] << " -> " << new_value << " (from " << s << ")";
                         viterbi[s_prime][t] = new_value;
                         parent[s_prime][t] = s;
-                    } else {
-                        SimpleLogger().Write() << " x " << t << ": " << new_value << " (from " << s << ")";
                     }
                 }
                 json_transition_rows.values.push_back(json_row);
-                json_viterbi_col.values.push_back(viterbi[s][t]);
+                json_viterbi_col.values.push_back(makeJSONSave(viterbi[s][t]));
             }
             json_viterbi.values.push_back(json_viterbi_col);
             json_timestamps.values.push_back(json_transition_rows);
@@ -337,7 +338,6 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
         debug_info.values["viterbi"] = json_viterbi;
         debug_info.values["beta"] = beta;
 
-        SimpleLogger().Write() << "Determining most plausible end state";
         // loop through the columns, and only compare the last entry
         auto max_element_iter = viterbi.begin();
         for (auto current = viterbi.begin(); current != viterbi.end(); current++)
@@ -348,20 +348,14 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
             }
         }
         auto parent_index = std::distance(viterbi.begin(), max_element_iter);
-        std::cout << "Selected maxium: " << max_element_iter->at(timestamp_list.size()-1) << " at index " << parent_index << std::endl;
         std::deque<std::size_t> reconstructed_indices;
 
-        SimpleLogger().Write() << "Backtracking to find most plausible state sequence";
         for (auto i = timestamp_list.size() - 1u; i > 0u; --i)
         {
-            SimpleLogger().Write() << "[" << i << "] select: " << parent_index ;
             reconstructed_indices.push_front(parent_index);
             parent_index = parent[parent_index][i];
         }
-        SimpleLogger().Write() << "[0] parent: " << parent_index;
         reconstructed_indices.push_front(parent_index);
-
-        SimpleLogger().Write() << "Computing most plausible sequence of phantom nodes";
 
         JSON::Array chosen_candidates;
         matched_nodes.resize(reconstructed_indices.size());
@@ -372,8 +366,6 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
             chosen_candidates.values.push_back(location_index);
         }
         debug_info.values["chosen_candidates"] = chosen_candidates;
-
-        SimpleLogger().Write() << "done";
     }
 };
 
