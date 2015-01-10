@@ -142,7 +142,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
                                    const PhantomNode &target_phantom) const
     {
         // great circle distance of two locations - median/avg dist table(candidate list1/2)
-        const EdgeWeight network_distance = get_network_distance(source_phantom, target_phantom);
+        const auto network_distance = get_network_distance(source_phantom, target_phantom);
         const auto great_circle_distance =
             FixedPointCoordinate::ApproximateDistance(location1, location2);
 
@@ -153,7 +153,7 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
         return network_distance - great_circle_distance;
     }
 
-    EdgeWeight get_network_distance(const PhantomNode &source_phantom,
+    double get_network_distance(const PhantomNode &source_phantom,
                                     const PhantomNode &target_phantom) const
     {
         EdgeWeight upper_bound = INVALID_EDGE_WEIGHT;
@@ -210,24 +210,28 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
             }
         }
 
-        std::vector<NodeID> packed_leg;
-        super::RetrievePackedPathFromHeap(forward_heap, reverse_heap, middle_node, packed_leg);
-        std::vector<PathData> unpacked_path;
-        PhantomNodes nodes;
-        nodes.source_phantom = source_phantom;
-        nodes.target_phantom = target_phantom;
-        super::UnpackPath(packed_leg, nodes, unpacked_path);
-
-        FixedPointCoordinate previous_coordinate = source_phantom.location;
-        FixedPointCoordinate current_coordinate;
-        double distance = 0;
-        for (const auto& p : unpacked_path)
+        double distance = std::numeric_limits<double>::max();
+        if (upper_bound != INVALID_EDGE_WEIGHT)
         {
-            current_coordinate = super::facade->GetCoordinateOfNode(p.node);
-            distance += FixedPointCoordinate::ApproximateDistance(previous_coordinate, current_coordinate);
-            previous_coordinate = current_coordinate;
+            std::vector<NodeID> packed_leg;
+            super::RetrievePackedPathFromHeap(forward_heap, reverse_heap, middle_node, packed_leg);
+            std::vector<PathData> unpacked_path;
+            PhantomNodes nodes;
+            nodes.source_phantom = source_phantom;
+            nodes.target_phantom = target_phantom;
+            super::UnpackPath(packed_leg, nodes, unpacked_path);
+
+            FixedPointCoordinate previous_coordinate = source_phantom.location;
+            FixedPointCoordinate current_coordinate;
+            distance = 0;
+            for (const auto& p : unpacked_path)
+            {
+                current_coordinate = super::facade->GetCoordinateOfNode(p.node);
+                distance += FixedPointCoordinate::ApproximateDistance(previous_coordinate, current_coordinate);
+                previous_coordinate = current_coordinate;
+            }
+            distance += FixedPointCoordinate::ApproximateDistance(previous_coordinate, target_phantom.location);
         }
-        distance += FixedPointCoordinate::ApproximateDistance(previous_coordinate, target_phantom.location);
 
         return distance;
     }
