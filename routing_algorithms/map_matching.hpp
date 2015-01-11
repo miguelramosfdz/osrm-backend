@@ -25,6 +25,7 @@ or see http://www.gnu.org/licenses/agpl.txt.
 
 #include "../Util/simple_logger.hpp"
 #include "../Util/container.hpp"
+#include "../data_structures/json_container.hpp"
 
 #include <algorithm>
 #include <iomanip>
@@ -43,6 +44,23 @@ T makeJSONSave(T d)
     }
 
     return d;
+}
+
+void appendToJSONArray(JSON::Array& a) { }
+
+template<typename T, typename... Args>
+void appendToJSONArray(JSON::Array& a, T value, Args... args)
+{
+    a.values.emplace_back(value);
+    appendToJSONArray(a, args...);
+}
+
+template<typename... Args>
+JSON::Array makeJSONArray(Args... args)
+{
+    JSON::Array a;
+    appendToJSONArray(a, args...);
+    return a;
 }
 
 namespace Matching
@@ -255,117 +273,170 @@ template <class DataFacadeT> class MapMatching final : public BasicRoutingInterf
     {
     }
 
-    void operator()(const unsigned state_size,
-                    const Matching::CandidateLists &timestamp_list,
+    // TODO optimize: a lot of copying that could probably be avoided
+    void expandCandidates(const Matching::CandidateLists &candidates_lists,
+                          Matching::CandidateLists &expanded_lists) const
+    {
+        // expand list of PhantomNodes to be single-directional
+        expanded_lists.resize(candidates_lists.size());
+        for (const auto i : osrm::irange(0lu, candidates_lists.size()))
+        {
+            for (const auto& candidate : candidates_lists[i])
+            {
+                // bi-directional edge, split phantom node
+                if (candidate.first.forward_node_id != SPECIAL_NODEID && candidate.first.reverse_node_id != SPECIAL_NODEID)
+                {
+                    PhantomNode forward_node(candidate.first);
+                    PhantomNode reverse_node(candidate.first);
+                    forward_node.reverse_node_id = SPECIAL_NODEID;
+                    reverse_node.forward_node_id = SPECIAL_NODEID;
+                    expanded_lists[i].emplace_back(forward_node, candidate.second);
+                    expanded_lists[i].emplace_back(reverse_node, candidate.second);
+                }
+                else
+                {
+                    expanded_lists[i].push_back(candidate);
+                }
+            }
+        }
+    }
+
+    void operator()(const Matching::CandidateLists &candidates_lists,
                     const std::vector<FixedPointCoordinate> coordinate_list,
                     std::vector<PhantomNode>& matched_nodes,
-                    JSON::Object& debug_info) const
+                    JSON::Object& _debug_info) const
     {
-        BOOST_ASSERT(state_size != std::numeric_limits<unsigned>::max());
-        BOOST_ASSERT(state_size != 0);
+        BOOST_ASSERT(candidates_lists.size() == coordinate_list.size());
 
+        Matching::CandidateLists timestamp_list;
+        expandCandidates(candidates_lists, timestamp_list);
 
-        std::vector<std::vector<double>> viterbi(state_size,
-                                                 std::vector<double>(timestamp_list.size(), -std::numeric_limits<double>::infinity()));
-        std::vector<std::vector<std::size_t>> parent(
-            state_size, std::vector<std::size_t>(timestamp_list.size(), 0));
+        BOOST_ASSERT(timestamp_list.size() > 0);
 
-        JSON::Array json_viterbi;
-        JSON::Array json_initial_viterbi;
-        for (auto s = 0u; s < state_size; ++s)
+        // TODO for the viterbi values we actually only need the current and last row
+        std::vector<std::vector<double>> viterbi;
+        std::vector<std::vector<std::size_t>> parents;
+        for (const auto& l : timestamp_list)
+        {
+            viterbi.emplace_back(l.size(), -std::numeric_limits<double>::infinity());
+            parents.emplace_back(l.size(), 0);
+        }
+
+        JSON::Array _debug_viterbi;
+        JSON::Array _debug_initial_viterbi;
+        for (auto s = 0u; s < viterbi[0].size(); ++s)
         {
             // this might need to be squared as pi_s is also defined as the emission
             // probability in the paper.
-            viterbi[s][0] = log_probability(emission_probability(timestamp_list[0][s].second));
-            parent[s][0] = s;
-            json_initial_viterbi.values.push_back(viterbi[s][0]);
+            viterbi[0][s] = log_probability(emission_probability(timestamp_list[0][s].second));
+            parents[0][s] = s;
+
+            _debug_initial_viterbi.values.push_back(makeJSONSave(viterbi[0][s]));
         }
-        json_viterbi.values.push_back(json_initial_viterbi);
-        SimpleLogger().Write() << "running viterbi algorithm: ";
+        _debug_viterbi.values.push_back(_debug_initial_viterbi);
 
         // attention, this call is relatively expensive
         //const auto beta = get_beta(state_size, timestamp_list, coordinate_list);
         const auto beta = 10.0;
 
-        JSON::Array json_timestamps;
+        JSON::Array _debug_timestamps;
         for (auto t = 1u; t < timestamp_list.size(); ++t)
         {
-            JSON::Array json_transition_rows;
-            JSON::Array json_viterbi_col;
+            const auto& prev_viterbi = viterbi[t-1];
+            const auto& prev_timestamps_list = timestamp_list[t-1];
+            const auto& prev_coordinate = coordinate_list[t-1];
+
+            auto& current_viterbi = viterbi[t];
+            auto& current_parents = parents[t];
+            const auto& current_timestamps_list = timestamp_list[t];
+            const auto& current_coordinate = coordinate_list[t];
+
+            JSON::Array _debug_transition_rows;
             // compute d_t for this timestamp and the next one
-            for (auto s = 0u; s < state_size; ++s)
+            for (auto s = 0u; s < prev_viterbi.size(); ++s)
             {
-                JSON::Array json_row;
-                for (auto s_prime = 0u; s_prime < state_size; ++s_prime)
+
+                JSON::Array _debug_row;
+                for (auto s_prime = 0u; s_prime < current_viterbi.size(); ++s_prime)
                 {
+
                     // how likely is candidate s_prime at time t to be emitted?
                     const double emission_pr = log_probability(emission_probability(timestamp_list[t][s_prime].second));
 
                     // get distance diff between loc1/2 and locs/s_prime
-                    const auto d_t = get_distance_difference(coordinate_list[t-1],
-                                                             coordinate_list[t],
-                                                             timestamp_list[t-1][s].first,
-                                                             timestamp_list[t][s_prime].first);
+                    const auto d_t = get_distance_difference(prev_coordinate,
+                                                             current_coordinate,
+                                                             prev_timestamps_list[s].first,
+                                                             current_timestamps_list[s_prime].first);
 
-                    // plug probabilities together. TODO: change to addition for logprobs
+                    // plug probabilities together
                     const double transition_pr = log_probability(transition_probability(d_t, beta));
-                    const double new_value = viterbi[s][t-1] + emission_pr + transition_pr;
+                    const double new_value = prev_viterbi[s] + emission_pr + transition_pr;
 
+                    JSON::Array _debug_element = makeJSONArray(
+                        makeJSONSave(prev_viterbi[s]),
+                        makeJSONSave(emission_pr),
+                        makeJSONSave(transition_pr),
+                        get_network_distance(prev_timestamps_list[s].first, current_timestamps_list[s_prime].first),
+                        FixedPointCoordinate::ApproximateDistance(prev_coordinate, current_coordinate)
+                    );
 
-                    JSON::Array json_element;
-                    json_element.values.push_back(makeJSONSave(viterbi[s][t-1]));
-                    json_element.values.push_back(makeJSONSave(emission_pr));
-                    json_element.values.push_back(makeJSONSave(transition_pr));
-                    json_element.values.push_back(get_network_distance(timestamp_list[t-1][s].first, timestamp_list[t][s_prime].first));
-                    json_element.values.push_back(FixedPointCoordinate::ApproximateDistance(coordinate_list[t-1], coordinate_list[t]));
+                    _debug_row.values.push_back(_debug_element);
 
-                    json_row.values.push_back(json_element);
-
-                    if (new_value > viterbi[s_prime][t])
+                    if (new_value > current_viterbi[s_prime])
                     {
-                        viterbi[s_prime][t] = new_value;
-                        parent[s_prime][t] = s;
+                        current_viterbi[s_prime] = new_value;
+                        current_parents[s_prime] = s;
                     }
                 }
-                json_transition_rows.values.push_back(json_row);
-                json_viterbi_col.values.push_back(makeJSONSave(viterbi[s][t]));
+                _debug_transition_rows.values.push_back(_debug_row);
             }
-            json_viterbi.values.push_back(json_viterbi_col);
-            json_timestamps.values.push_back(json_transition_rows);
+            _debug_timestamps.values.push_back(_debug_transition_rows);
+
+            JSON::Array _debug_viterbi_col;
+            for (auto s_prime = 0u; s_prime < current_timestamps_list.size(); ++s_prime)
+            {
+                _debug_viterbi_col.values.push_back(makeJSONSave(current_viterbi[s_prime]));
+            }
+            _debug_viterbi.values.push_back(_debug_viterbi_col);
         }
 
-        debug_info.values["transitions"] = json_timestamps;
-        debug_info.values["viterbi"] = json_viterbi;
-        debug_info.values["beta"] = beta;
+        _debug_info.values["transitions"] = _debug_timestamps;
+        _debug_info.values["viterbi"] = _debug_viterbi;
+        _debug_info.values["beta"] = beta;
 
         // loop through the columns, and only compare the last entry
-        auto max_element_iter = viterbi.begin();
-        for (auto current = viterbi.begin(); current != viterbi.end(); current++)
-        {
-            if (max_element_iter->at(timestamp_list.size()-1) < current->at(timestamp_list.size()-1))
-            {
-                max_element_iter = current;
-            }
-        }
-        auto parent_index = std::distance(viterbi.begin(), max_element_iter);
+        auto max_element_iter = std::max_element(viterbi.back().begin(), viterbi.back().end());
+        auto parent_index = std::distance(viterbi.back().begin(), max_element_iter);
         std::deque<std::size_t> reconstructed_indices;
 
         for (auto i = timestamp_list.size() - 1u; i > 0u; --i)
         {
             reconstructed_indices.push_front(parent_index);
-            parent_index = parent[parent_index][i];
+            parent_index = parents[i][parent_index];
         }
         reconstructed_indices.push_front(parent_index);
 
-        JSON::Array chosen_candidates;
+        JSON::Array _debug_chosen_candidates;
         matched_nodes.resize(reconstructed_indices.size());
         for (auto i = 0u; i < reconstructed_indices.size(); ++i)
         {
             auto location_index = reconstructed_indices[i];
             matched_nodes[i] = timestamp_list[i][location_index].first;
-            chosen_candidates.values.push_back(location_index);
+            _debug_chosen_candidates.values.push_back(location_index);
         }
-        debug_info.values["chosen_candidates"] = chosen_candidates;
+        _debug_info.values["chosen_candidates"] = _debug_chosen_candidates;
+        JSON::Array _debug_expanded_candidates;
+        for (const auto& l : timestamp_list) {
+            JSON::Array _debug_expanded_candidates_col;
+            for (const auto& pair : l) {
+                const auto& coord = pair.first.location;
+                _debug_expanded_candidates_col.values.push_back(makeJSONArray(coord.lat / COORDINATE_PRECISION,
+                                                                              coord.lon / COORDINATE_PRECISION));
+            }
+            _debug_expanded_candidates.values.push_back(_debug_expanded_candidates_col);
+        }
+        _debug_info.values["expanded_candidates"] = _debug_expanded_candidates;
     }
 };
 
