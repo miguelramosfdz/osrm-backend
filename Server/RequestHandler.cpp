@@ -133,7 +133,7 @@ void RequestHandler::handle_request(const http::Request &req, http::Reply &reply
         { // pbf file
             JSON::pbf_render(reply.content, json_result.values["pbf"]);
             reply.headers.emplace_back("Content-Type", "application/x-protobuf; charset=UTF-8");
-            reply.headers.emplace_back("Content-Disposition", "inline; filename=\"response.json\"");
+            reply.headers.emplace_back("Content-Disposition", "inline; filename=\"response.pbf\"");
         }
         else if (route_parameters.jsonp_parameter.empty())
         { // json file
