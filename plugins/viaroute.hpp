@@ -57,7 +57,7 @@ template <class DataFacadeT> class ViaRoutePlugin final : public BasePlugin
     DataFacadeT *facade;
 
   public:
-    explicit ViaRoutePlugin(DataFacadeT *facade) : descriptor_string("viaroute"), facade(facade)
+    explicit ViaRoutePlugin(DataFacadeT *facade) : BasePlugin(), descriptor_string("viaroute"), facade(facade)
     {
         search_engine_ptr = osrm::make_unique<SearchEngine<DataFacadeT>>(facade);
     }
