@@ -403,7 +403,7 @@ template <class EdgeDataT> class SharedDataFacade : public BaseDataFacade<EdgeDa
     bool
     IncrementalFindPhantomNodeForCoordinateWithDistance(const FixedPointCoordinate &input_coordinate,
                                                         std::vector<std::pair<PhantomNode, double>> &resulting_phantom_node_vector,
-                                                        const unsigned number_of_results) final
+                                                        const double max_distance) final
     {
         if (!m_static_rtree.get() || CURRENT_TIMESTAMP != m_static_rtree->first)
         {
@@ -411,7 +411,7 @@ template <class EdgeDataT> class SharedDataFacade : public BaseDataFacade<EdgeDa
         }
 
         return m_static_rtree->second->IncrementalFindPhantomNodeForCoordinateWithDistance(
-            input_coordinate, resulting_phantom_node_vector, number_of_results);
+            input_coordinate, resulting_phantom_node_vector, max_distance);
     }
 
     unsigned GetCheckSum() const final { return m_check_sum; }

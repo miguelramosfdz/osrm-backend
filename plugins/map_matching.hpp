@@ -76,29 +76,40 @@ template <class DataFacadeT> class MapMatchingPlugin : public BasePlugin
         }
         RawRouteData raw_route;
         Matching::CandidateLists candidate_lists;
-        candidate_lists.resize(route_parameters.coordinates.size());
 
-        // fetch  10 candidates for each given coordinate
-        for (const auto current_coordinate : osrm::irange<std::size_t>(0, candidate_lists.size()))
+        double last_distance = FixedPointCoordinate::ApproximateEuclideanDistance(
+            route_parameters.coordinates[0],
+            route_parameters.coordinates[1]);
+        for (const auto current_coordinate : osrm::irange<std::size_t>(0, route_parameters.coordinates.size()))
         {
+            if (0 < current_coordinate)
+                last_distance = FixedPointCoordinate::ApproximateEuclideanDistance(
+                    route_parameters.coordinates[current_coordinate - 1],
+                    route_parameters.coordinates[current_coordinate]);
+
+            std::cout << "Searching: " << current_coordinate << std::endl;
+            std::vector<std::pair<PhantomNode, double>> candidates;
             if (!facade->IncrementalFindPhantomNodeForCoordinateWithDistance(
                     route_parameters.coordinates[current_coordinate],
-                    candidate_lists[current_coordinate],
-                    5))
+                    candidates,
+                    last_distance))
             {
-                reply = http::Reply::StockReply(http::Reply::badRequest);
-                return;
+                std::cout << "Nothing found for " << current_coordinate << std::endl;
+                continue;
             }
+
+            candidate_lists.push_back(candidates);
+
+            std::cout << current_coordinate << " (" << (last_distance / 2.0)  << ") : "
+                      << candidates.size() << std::endl;
 
             BOOST_ASSERT(candidate_lists[current_coordinate].size() == 10);
+        }
 
-            /*
-            while (candidate_lists[current_coordinate].size() < 10)
-            {
-                // TODO: add dummy candidates, if any are missing
-                // TODO: add factory method to get an invalid PhantomNode/Distance pair
-            }
-            */
+        if (2 > candidate_lists.size())
+        {
+            reply = http::Reply::StockReply(http::Reply::badRequest);
+            return;
         }
 
         // call the actual map matching
