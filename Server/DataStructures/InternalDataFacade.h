@@ -409,17 +409,18 @@ template <class EdgeDataT> class InternalDataFacade : public BaseDataFacade<Edge
     }
 
     bool
-    IncrementalFindPhantomNodeForCoordinateWithDistance(const FixedPointCoordinate &input_coordinate,
+    IncrementalFindPhantomNodeForCoordinateWithMaxDistance(const FixedPointCoordinate &input_coordinate,
                                                         std::vector<std::pair<PhantomNode, double>> &resulting_phantom_node_vector,
-                                                        const double max_distance) final
+                                                        const double max_distance,
+                                                        const unsigned min_number_of_phantom_nodes) final
     {
         if (!m_static_rtree.get())
         {
             LoadRTree();
         }
 
-        return m_static_rtree->IncrementalFindPhantomNodeForCoordinateWithDistance(
-            input_coordinate, resulting_phantom_node_vector, max_distance);
+        return m_static_rtree->IncrementalFindPhantomNodeForCoordinateWithMaxDistance(
+            input_coordinate, resulting_phantom_node_vector, max_distance, min_number_of_phantom_nodes);
     }
 
     unsigned GetCheckSum() const final { return m_check_sum; }

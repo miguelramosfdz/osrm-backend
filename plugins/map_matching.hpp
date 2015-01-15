@@ -87,29 +87,18 @@ template <class DataFacadeT> class MapMatchingPlugin : public BasePlugin
                     route_parameters.coordinates[current_coordinate - 1],
                     route_parameters.coordinates[current_coordinate]);
 
-            std::cout << "Searching: " << current_coordinate << std::endl;
             std::vector<std::pair<PhantomNode, double>> candidates;
-            if (!facade->IncrementalFindPhantomNodeForCoordinateWithDistance(
+            if (!facade->IncrementalFindPhantomNodeForCoordinateWithMaxDistance(
                     route_parameters.coordinates[current_coordinate],
                     candidates,
-                    last_distance))
+                    last_distance/2.0,
+                    5))
             {
-                std::cout << "Nothing found for " << current_coordinate << std::endl;
-                continue;
+                reply = http::Reply::StockReply(http::Reply::badRequest);
+                return;
             }
 
             candidate_lists.push_back(candidates);
-
-            std::cout << current_coordinate << " (" << (last_distance / 2.0)  << ") : "
-                      << candidates.size() << std::endl;
-
-            BOOST_ASSERT(candidate_lists[current_coordinate].size() == 10);
-        }
-
-        if (2 > candidate_lists.size())
-        {
-            reply = http::Reply::StockReply(http::Reply::badRequest);
-            return;
         }
 
         // call the actual map matching

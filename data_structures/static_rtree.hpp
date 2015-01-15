@@ -791,9 +791,10 @@ class StaticRTree
     // - continues to find the k+1st element from a big component if k elements
     //   come from tiny components
     bool
-    IncrementalFindPhantomNodeForCoordinateWithDistance(const FixedPointCoordinate &input_coordinate,
+    IncrementalFindPhantomNodeForCoordinateWithMaxDistance(const FixedPointCoordinate &input_coordinate,
                                                         std::vector<std::pair<PhantomNode, double>> &result_phantom_node_vector,
                                                         const double max_distance,
+                                                        const unsigned min_number_of_phantom_nodes,
                                                         const unsigned max_checked_elements = 4*LEAF_NODE_SIZE)
     {
         unsigned inspected_elements = 0;
@@ -828,8 +829,7 @@ class StaticRTree
                         BOOST_ASSERT(0.f <= current_perpendicular_distance);
 
                         // put element in queue
-                        //if (current_perpendicular_distance < max_distance)
-                            traversal_queue.emplace(current_perpendicular_distance, current_edge);
+                        traversal_queue.emplace(current_perpendicular_distance, current_edge);
                     }
                 }
                 else
@@ -843,8 +843,7 @@ class StaticRTree
                         const float lower_bound_to_element = child_rectangle.GetMinDist(input_coordinate);
                         BOOST_ASSERT(0.f <= lower_bound_to_element);
 
-                        //if (lower_bound_to_element < max_distance)
-                            traversal_queue.emplace(lower_bound_to_element, child_tree_node);
+                        traversal_queue.emplace(lower_bound_to_element, child_tree_node);
                     }
                 }
             }
@@ -865,7 +864,7 @@ class StaticRTree
                         foot_point_coordinate_on_segment,
                         current_ratio);
 
-                if (current_perpendicular_distance > max_distance)
+                if (current_perpendicular_distance > max_distance && result_phantom_node_vector.size() >= min_number_of_phantom_nodes)
                 {
                     traversal_queue = std::priority_queue<IncrementalQueryCandidate>{};
                     continue;
